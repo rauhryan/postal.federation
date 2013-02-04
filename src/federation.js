@@ -64,6 +64,14 @@ var NO_OP = function() {},
 				}
 			}
 		},
+    disconnect: function( ) {
+      return {
+        type : 'federation.disconnect',
+        instanceId : postal.instanceId(),
+        timeStamp : new Date(),
+        envelope : {}
+      };
+    },
 		message : function ( env ) {
 			return {
 				type : 'federation.message',
@@ -118,9 +126,12 @@ var NO_OP = function() {},
 				}
 			} );
 		},
+    "federation.disconnect" : function (data) {
+         console.log(data);
+    },
 		"federation.message" : function ( data ) {
 			var env = data.packingSlip.envelope;
-			if ( _matchesFilter( env.channel, env.topic, 'in' ) ) {
+			if ( _matchesFilter( env.channel, env.topic, 'inbound' ) ) {
 				env.lastSender = data.packingSlip.instanceId;
 				postal.publish( env );
 			}
@@ -182,6 +193,10 @@ FederationClient.prototype.sendMessage = function ( envelope ) {
 	}
 };
 
+FederationClient.prototype.sendDisconnect = function() {
+  this.disconnect(postal.fedx.getPackingSlip( 'disconnect' ));
+}
+
 FederationClient.prototype.onMessage = function ( packingSlip ) {
 	if ( this.shouldProcess() ) {
 		postal.fedx.onFederatedMsg( {
@@ -210,13 +225,13 @@ postal.fedx = _.extend( {
 
 	transports : {},
 
-	filters : { in : {}, out : {} },
+	filters : { inbound : {}, outbound : {} },
 
 	addFilter : function ( filters ) {
 		filters = _.isArray( filters ) ? filters : [ filters ];
 		_.each( filters, function ( filter ) {
 			filter.direction = filter.direction || _config.filterDirection;
-			_.each( (filter.direction === 'both') ? [ 'in', 'out' ] : [ filter.direction ], function ( dir ) {
+			_.each( (filter.direction === 'both') ? [ 'inbound', 'outbound' ] : [ filter.direction ], function ( dir ) {
 				if ( !this.filters[dir][filter.channel] ) {
 					this.filters[dir][filter.channel] = [ filter.topic ];
 				} else if ( !(_.include( this.filters[dir][filter.channel], filter.topic )) ) {
@@ -230,7 +245,7 @@ postal.fedx = _.extend( {
 		filters = _.isArray( filters ) ? filters : [ filters ];
 		_.each( filters, function ( filter ) {
 			filter.direction = filter.direction || _config.filterDirection;
-			_.each( (filter.direction === 'both') ? [ 'in', 'out' ] : [ filter.direction ], function ( dir ) {
+			_.each( (filter.direction === 'both') ? [ 'inbound', 'outbound' ] : [ filter.direction ], function ( dir ) {
 				if ( this.filters[dir][filter.channel] && _.include( this.filters[dir][filter.channel], filter.topic ) ) {
 					this.filters[dir][filter.channel] = _.without( this.filters[dir][filter.channel], filter.topic );
 				}
@@ -239,7 +254,7 @@ postal.fedx = _.extend( {
 	},
 
 	canSendRemote : function ( channel, topic ) {
-		return _matchesFilter( channel, topic, 'out' );
+		return _matchesFilter( channel, topic, 'outbound' );
 	},
 
 	configure : function ( cfg ) {
